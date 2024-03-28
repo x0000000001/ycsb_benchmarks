@@ -1,7 +1,7 @@
 #!/bin/bash
 
 python2path="./Python-2.7.2/python"
-ycsb_path="./ycsb-0.17.0"
+ycsb_path="./ycsb"
 
 redis_cluster_config="./cluster-config-template.conf"
 redis_port=6379
@@ -11,14 +11,22 @@ mongo_network_name="mongocluster"
 mongo_replica_name="mongoreplicaset"
 
 check_workload() {
-	path="$ycsb_path/workloads/workload$1"
+	path0="./workloads/workload$1"
 
-	if ! [[ -f $path ]]; then
-		echo "Unknown workload : $workload"
-		exit 1
+	if [[ -f $path0 ]]; then
+		echo $path0
+		return
 	fi
 
-	echo $path
+	path1="$ycsb_path/workloads/workload$1"
+
+	if [[ -f $path1 ]]; then
+		echo $path1
+		return
+	fi
+
+	echo "Unknown workload : $workload"
+	exit 1
 }
 
 # REDIS
@@ -31,7 +39,7 @@ redis_start() {
 	containers_count=$1
 	ip_addresses=""
 
-	for i in $(seq 1 $containers_count); do
+	for i in $(seq 1 $(($containers_count * 3))); do
 		name="redis-$i"
 		port=$(($redis_port + i))
 
@@ -44,7 +52,7 @@ redis_start() {
 		ip_addresses="$ip_addresses $(sudo docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $name):$redis_port"
 	done
 
-	echo "yes" | sudo docker exec -i redis-1 redis-cli --cluster create $ip_addresses
+	echo "yes" | sudo docker exec -i redis-1 redis-cli --cluster create $ip_addresses --cluster-replicas $(($containers_count - 1))
 }
 
 redis_stop() {
