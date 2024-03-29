@@ -7,31 +7,21 @@ cluster_script="./cluster_manage.sh"
 execs_count=10
 
 folder_for_test() {
-	workload=$1
-	threads=$2
-	folder="$tests_folder/workload_$workload/threads_$threads"
-	mkdir -p $folder
-	echo $folder
-}
-
-test_file() {
 	bdd=$1
 	workload=$2
 	nodes=$3
 	threads=$4
-	folder=$(folder_for_test $workload $threads)
-	echo "$folder/${bdd}_${nodes}nodes_"
+	folder="$tests_folder/$workload/$nodes/$threads/$bdd"
+	mkdir -p $folder
+	echo $folder
 }
-
-# FIXME mongo doesn't load right
-# when called fom here
 
 test() {
 	bdd=$1
 	workload=$2
 	nodes=$3
 	threads=$4
-	path=$(test_file $bdd $workload $nodes $threads)
+	path=$(folder_for_test $bdd $workload $nodes $threads)
 
 	$cluster_script $bdd stop
 	$cluster_script $bdd start $nodes
@@ -46,7 +36,7 @@ test() {
 		echo "##########################################"
 		echo "TEST $i/$execs_count"
 		echo "##########################################"
-		iteration_path="$path$i"
+		iteration_path="$path/$i"
 		$cluster_script $bdd run $workload $threads $iteration_path
 	done
 
