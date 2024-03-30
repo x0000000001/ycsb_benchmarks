@@ -70,7 +70,18 @@ redis_load_workload() {
 
 redis_run_workload() {
 	workload=$(check_workload $1)
-	$python2path "$ycsb_path/bin/ycsb" run redis -s -P $workload -p "redis.host=127.0.0.1" -p "redis.port=$(($redis_port + 1))" -p "redis.cluster=true"
+	threads=$2
+	redirect=$3
+
+	# this is STUPID
+	# but for whatever reason, a variable
+	# with the ">" character will throw a
+	# YCSB error
+	if [[ "$redirect" != "" ]]; then
+		$python2path "$ycsb_path/bin/ycsb" run redis -s -P $workload -threads $threads -p "redis.host=127.0.0.1" -p "redis.port=$(($redis_port + 1))" -p "redis.cluster=true" >$redirect
+	else
+		$python2path "$ycsb_path/bin/ycsb" run redis -s -P $workload -threads $threads -p "redis.host=127.0.0.1" -p "redis.port=$(($redis_port + 1))" -p "redis.cluster=true"
+	fi
 }
 
 # MONGODB
@@ -89,7 +100,6 @@ mongo_start() {
 
 	# containers creation
 	for i in $(seq 1 $containers_count); do
-		echo "RUNNING : \"sudo docker run -d --rm -p $((27017 + $i - 1)):27017 --name mongo$i --network $mongo_network_name mongo:5 mongod --replSet $mongo_replica_name --bind_ip localhost,mongo$i\""
 		sudo docker run -d --rm -p $((27017 + $i - 1)):27017 --name mongo$i --network $mongo_network_name mongo:5 mongod --replSet $mongo_replica_name --bind_ip localhost,mongo$i
 
 		if [[ $i -ne 1 ]]; then
@@ -119,14 +129,24 @@ mongo_status() {
 mongo_load_workload() {
 	connection_string=$(mongo_get_connection_string)
 	workload=$(check_workload $1)
-	echo $workload
 	$python2path "$ycsb_path/bin/ycsb" load mongodb -s -P $workload -p mongodb.url=$connection_string
 }
 
 mongo_run_workload() {
 	connection_string=$(mongo_get_connection_string)
 	workload=$(check_workload $1)
-	$python2path "$ycsb_path/bin/ycsb" run mongodb -s -P $workload -p mongodb.url=$connection_string
+	threads=$2
+	redirect=$3
+
+	# this is STUPID
+	# but for whatever reason, a variable
+	# with the ">" character will throw a
+	# YCSB error
+	if [[ "$redirect" != "" ]]; then
+		$python2path "$ycsb_path/bin/ycsb" run mongodb -s -P $workload -threads $threads -p mongodb.url=$connection_string >$redirect
+	else
+		$python2path "$ycsb_path/bin/ycsb" run mongodb -s -P $workload -threads $threads -p mongodb.url=$connection_string
+	fi
 }
 
 # CLI
@@ -143,7 +163,7 @@ mongo_handler() {
 		mongo_load_workload $3
 		;;
 	"run")
-		mongo_run_workload $3
+		mongo_run_workload $3 $4 $5
 		;;
 	"status")
 		mongo_status
@@ -166,7 +186,7 @@ redis_handler() {
 		redis_load_workload $3
 		;;
 	"run")
-		redis_run_workload $3
+		redis_run_workload $3 $4 $5
 		;;
 	*)
 		help
@@ -178,11 +198,11 @@ help() {
 	echo "Usage: ./cluster_manage.sh <database> <command> [options]"
 	echo
 	echo "Commands:"
-	echo "  start <count>    Start the database cluster with the specified number of nodes."
-	echo "  stop             Stop and remove the database cluster and associated Docker network."
-	echo "  load <workload>  Load a workload into the database cluster."
-	echo "  run <workload>   Run a workload on the database cluster."
-	echo "  status           Check the status of the MongoDB replica set."
+	echo "  start <count>                              Start the database cluster with the specified number of nodes."
+	echo "  stop                                       Stop and remove the database cluster and associated Docker network."
+	echo "  load <workload>                            Load a workload into the database cluster."
+	echo "  run <workload> <threads> [redirect path]   Run a workload on the database cluster."
+	echo "  status                                     Check the status of the MongoDB replica set."
 	echo
 	echo "Databases:"
 	echo "  redis            Manage Redis cluster."
@@ -195,7 +215,7 @@ help() {
 	echo "Example:"
 	echo "  ./cluster_manage.sh redis start 3"
 	echo "  ./cluster_manage.sh mongo load a"
-	echo "  ./cluster_manage.sh mongo run a"
+	echo "  ./cluster_manage.sh mongo run a 4 log.txt"
 	echo "  ./cluster_manage.sh mongo stop"
 	echo
 	echo "Note:"
