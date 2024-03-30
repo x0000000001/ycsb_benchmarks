@@ -26,8 +26,11 @@ test() {
 	$cluster_script $bdd stop
 	$cluster_script $bdd start $nodes
 	if [[ $bdd = "mongo" ]]; then
-		echo "PLEASE GO TO \"127.0.0.1:27017\" AND PRESS ENTER WHEN PAGE RESPONDS."
-		read
+		# echo "PLEASE GO TO \"127.0.0.1:27017\" AND PRESS ENTER WHEN PAGE RESPONDS."
+		# read
+		sleep 15
+	else
+		sleep 5
 	fi
 
 	$cluster_script $bdd load $workload
@@ -67,11 +70,33 @@ help() {
 	echo "  - Workload files should be located in the 'workloads' directory."
 }
 
+all() {
+	bdd=$1
+
+	declare -a workload_choices=("100_0" "50_50" "10_90")
+	declare -a nodes_choices=(3 5)
+	declare -a threads_choices=(1 2 3 4 5)
+
+	for workload in "${workload_choices[@]}"; do
+		for nodes in "${nodes_choices[@]}"; do
+			for threads in "${threads_choices[@]}"; do
+				echo "BDD=${bdd}, WORKLOAD=${workload}, NODES=${nodes}, THREADS=${threads}"
+				test $bdd $workload $nodes $threads
+			done
+		done
+	done
+}
+
 main() {
 	bdd=$1
 	workload=$2
 	nodes=$3
 	threads=$4
+
+	if [[ $workload = "all" ]]; then
+		all $bdd
+		exit 0
+	fi
 
 	if [[ "$bdd" = "" ]] || [[ "$workload" = "" ]] || [[ "$nodes" = "" ]] || [[ "$threads" = "" ]]; then
 		help
